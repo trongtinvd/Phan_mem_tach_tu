@@ -308,9 +308,23 @@ class LanguageTool():
 class ClassifyNameEntity():
 
 	person_prefix = ['ông', 'bà', 'anh', 'chị', 'chú', 'bác', 'cô', 'dì', 'con', 'thằng', 'chủ tịch', 'giám_đốc', 'trưởng_phòng']
-	location_hint = ['phố', 'phường', 'cầu', 'chùa', 'tháp', 'đại lộ', 'cao tốc', 'núi', 'rừng', 'sông', 'suối', 'hồ', 'biển', 'vịnh', 'vũng', 'châu', 'đại dương', 'đại_lục', 'đồng_bằng', 'cao_nguyên', 'thiên_thể']
-	direction_prefix = ['phương', 'đông', 'tây', 'nam', 'bắc', 'đông bắc', 'nam bắc', 'đông nam', 'tây nam']
-	organization_hint = ['đạo', 'giáo', 'bộ', 'trường', 'nhà máy', 'công ty']
+	person_lastname = ['nguyễn', 'trần', 'lê', 'phạm', 'huỳnh', 'hoàng', 'phan', 'võ', 'đặng', 'bùi', 'đổ', 'hồ', 'ngô', 'dương', 'lý']
+	location_hint = ['phố', 'phường', 'cầu', 'chùa', 'tháp', 'đại_lộ', 'cao_tốc', 'núi', 'rừng', 'sông', 'suối', 'hồ', 'biển', 'vịnh', 'vũng', 'châu', 'đại_dương', 'đại_lục', 'đồng_bằng', 'cao_nguyên', 'thiên_thể']
+	direction_prefix = ['phương', 'đông', 'tây', 'nam', 'bắc', 'đông_bắc', 'nam_bắc', 'đông_nam', 'tây_nam']
+	organization_hint = ['đạo', 'giáo', 'bộ', 'trường', 'nhà máy', 'xưởng', 'công_ty']
+	number_pattern = [
+		re.compile(r'(^\d*\.?\d*[1-9]+\d*$)|(^[1-9]+\d*\.\d*$)'),
+		re.compile(r'^[-+]?\d+(\.\d+)?$')
+	]
+	datetime_pattern = [
+		re.compile(r'^((([0]?[1-9]|1[0-2])(:|\.)[0-5][0-9]((:|\.)[0-5][0-9])?( )?(AM|am|aM|Am|PM|pm|pM|Pm))|(([0]?[0-9]|1[0-9]|2[0-3])(:|\.)[0-5][0-9]((:|\.)[0-5][0-9])?))$'),
+		re.compile(r'^((31(?!\ (Feb(ruary)?|Apr(il)?|June?|(Sep(?=\b|t)t?|Nov)(ember)?)))|((30|29)(?!\ Feb(ruary)?))|(29(?=\ Feb(ruary)?\ (((1[6-9]|[2-9]\d)(0[48]|[2468][048]|[13579][26])|((16|[2468][048]|[3579][26])00)))))|(0?[1-9])|1\d|2[0-8])\ (Jan(uary)?|Feb(ruary)?|Ma(r(ch)?|y)|Apr(il)?|Ju((ly?)|(ne?))|Aug(ust)?|Oct(ober)?|(Sep(?=\b|t)t?|Nov|Dec)(ember)?)\ ((1[6-9]|[2-9]\d)\d{2})$'),
+		# re.compile(r'?n:^(?=\d)((?<month>(0?[13578])|1[02]|(0?[469]|11)(?!.31)|0?2(?(.29)(?=.29.((1[6-9]|[2-9]\d)(0[48]|[2468][048]|[13579][26])|(16|[2468][048]|[3579][26])00))|(?!.3[01])))(?<sep>[-./])(?<day>0?[1-9]|[12]\d|3[01])\k<sep>(?<year>(1[6-9]|[2-9]\d)\d{2})(?(?=\x20\d)\x20|$))?(?<time>((0?[1-9]|1[012])(:[0-5]\d){0,2}(?i:\x20[AP]M))|([01]\d|2[0-3])(:[0-5]\d){1,2})?$'),
+		re.compile(r'^\d{1,2}\/\d{1,2}\/\d{4}$')
+	]
+	measure_pattern = [
+		re.compile(r'(\d*\.?\d+)\s?(cm|dm|m|km|ha|g|mg|kg|t|l|ml|px|em|ex|%|in|cn|mm|pt|pc+)')
+	]
 	
 	@staticmethod
 	def classify(previous_word, word, next_word):
@@ -318,46 +332,77 @@ class ClassifyNameEntity():
 			'capital': False,
 			'maybe a person': False,
 			'maybe a location': False,
-			'maybe a organization': False
+			'maybe a organization': False,
+			'maybe a number': False,
+			'maybe a datetime': False,
+			'maybe a measure': False
 		}
 		
 		if word.replace('_', ' ') == word.replace('_', ' ').title():
 			property['capital'] = True
 		if previous_word in ClassifyNameEntity.person_prefix:
 			property['maybe a person'] = True
+		for lastname in ClassifyNameEntity.person_lastname:
+			if word.lower().startswith(lastname):
+				property['maybe a person'] = True
+				break
 		for hint in ClassifyNameEntity.location_hint:
 			if hint in word.lower():
 				property['maybe a location'] = True
-				break;
+				break
 		for prefix in ClassifyNameEntity.direction_prefix:
 			if word.lower().startswith(prefix):
 				property['maybe a location'] = True
-				break;
+				break
 		for hint in ClassifyNameEntity.organization_hint:
 			if hint in word.lower():
 				property['maybe a organization'] = True
-				break;
+				break
+		for pattern in ClassifyNameEntity.number_pattern:
+			if pattern.match(word.lower()):
+				property['maybe a number'] = True
+				break
+		for pattern in ClassifyNameEntity.datetime_pattern:
+			if pattern.match(word.lower()):
+				property['maybe a datetime'] = True
+				break
+		for pattern in ClassifyNameEntity.measure_pattern:
+			if pattern.match(word.lower()):
+				property['maybe a measure'] = True
+				break
 		
 		
-		print(word, word.replace('_', ' '), word.replace('_', ' ').title())
-		print('cap',property['capital'])
-		print('per',property['maybe a person'])
-		print('loc',property['maybe a location'])
-		print('org',property['maybe a organization'])
-		print('------------------------------------')
 		
 		
-	
-		if property['maybe a person'] == True and property['capital'] == True:
-			return 'PER'
-		elif property['capital'] == True and property['maybe a location'] == False and property['maybe a organization'] == False:
-			return 'PER'
-		elif property['maybe a location'] == True and property['maybe a organization'] == False:
+		# print(word, word.replace('_', ' '), word.replace('_', ' ').title())
+		# print('cap',property['capital'])
+		# print('per',property['maybe a person'])
+		# print('loc',property['maybe a location'])
+		# print('org',property['maybe a organization'])
+		# print('------------------------------------')
+		
+		
+		
+		if property['maybe a number'] == True:
+			return 'NUM'
+		elif property['maybe a datetime'] == True:
+			return 'DTM'
+		elif property['maybe a measure'] == True:
+			return 'MEA'
+			
+		if property['capital'] == True:
+			if property['maybe a person'] == True:
+				return 'PER'
+			if property['maybe a location'] == False and property['maybe a organization'] == False:
+				return 'TRM'
+			
+			
+		if property['maybe a location'] == True and property['maybe a organization'] == False:
 			return 'LOC'
 		elif property['maybe a organization'] == True and property['maybe a location'] == False:
 			return 'ORG'
-		else:
-			return 'O'
+			
+		return 'O'
 
 
 
