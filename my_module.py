@@ -280,6 +280,85 @@ class LanguageTool():
 				result.append('{}/{}'. format(word.replace(' ', '_'), pos_tags))
 		return result
 
+	@staticmethod
+	def ne_tagging(word_list):
+		if not 'LanguageTool.VN_dict' in locals():
+			LanguageTool.create_dictionary()
+		
+		result = []		
+		word_list_len = len(word_list)
+		
+		if word_list_len == 0:
+			return []
+		elif word_list_len == 1:
+			entity = ClassifyNameEntity.classify('', word_list[0], '')
+			result.append('{}/{}'.format(word_list[0].replace(' ', '_'), entity))
+		else:
+			for i in range(word_list_len):		
+				if i == 0:
+					entity = ClassifyNameEntity.classify('', word_list[0], word_list[1])
+				elif i == len(word_list) - 1:
+					entity = ClassifyNameEntity.classify(word_list[i-1], word_list[i], '')
+				else: # 0 < i < len - 1
+					entity = ClassifyNameEntity.classify(word_list[i-1], word_list[i], word_list[i+1])			
+				result.append('{}/{}'.format(word_list[i].replace(' ', '_'), entity))
+			
+		return result
+		
+class ClassifyNameEntity():
+
+	person_prefix = ['ông', 'bà', 'anh', 'chị', 'chú', 'bác', 'cô', 'dì', 'con', 'thằng', 'chủ tịch', 'giám_đốc', 'trưởng_phòng']
+	location_hint = ['phố', 'phường', 'cầu', 'chùa', 'tháp', 'đại lộ', 'cao tốc', 'núi', 'rừng', 'sông', 'suối', 'hồ', 'biển', 'vịnh', 'vũng', 'châu', 'đại dương', 'đại_lục', 'đồng_bằng', 'cao_nguyên', 'thiên_thể']
+	direction_prefix = ['phương', 'đông', 'tây', 'nam', 'bắc', 'đông bắc', 'nam bắc', 'đông nam', 'tây nam']
+	organization_hint = ['đạo', 'giáo', 'bộ', 'trường', 'nhà máy', 'công ty']
+	
+	@staticmethod
+	def classify(previous_word, word, next_word):
+		property = {
+			'capital': False,
+			'maybe a person': False,
+			'maybe a location': False,
+			'maybe a organization': False
+		}
+		
+		if word.replace('_', ' ') == word.replace('_', ' ').title():
+			property['capital'] = True
+		if previous_word in ClassifyNameEntity.person_prefix:
+			property['maybe a person'] = True
+		for hint in ClassifyNameEntity.location_hint:
+			if hint in word.lower():
+				property['maybe a location'] = True
+				break;
+		for prefix in ClassifyNameEntity.direction_prefix:
+			if word.lower().startswith(prefix):
+				property['maybe a location'] = True
+				break;
+		for hint in ClassifyNameEntity.organization_hint:
+			if hint in word.lower():
+				property['maybe a organization'] = True
+				break;
+		
+		
+		print(word, word.replace('_', ' '), word.replace('_', ' ').title())
+		print('cap',property['capital'])
+		print('per',property['maybe a person'])
+		print('loc',property['maybe a location'])
+		print('org',property['maybe a organization'])
+		print('------------------------------------')
+		
+		
+	
+		if property['maybe a person'] == True and property['capital'] == True:
+			return 'PER'
+		elif property['capital'] == True and property['maybe a location'] == False and property['maybe a organization'] == False:
+			return 'PER'
+		elif property['maybe a location'] == True and property['maybe a organization'] == False:
+			return 'LOC'
+		elif property['maybe a organization'] == True and property['maybe a location'] == False:
+			return 'ORG'
+		else:
+			return 'O'
+
 
 
 # https://stackoverflow.com/questions/3781670/how-to-highlight-text-in-a-tkinter-text-widget
@@ -401,8 +480,14 @@ class GanThucThe(GanNhanTu):
 	def __init__(self, root):
 		GanNhanTu.__init__(self, root)
 		self.auto_assign_button['text'] = 'Tự động dán thực thể'
-		self.auto_assign_button['state'] = 'disable'
+		# self.auto_assign_button['state'] = 'disable'
 		self.main_menu.entryconfigure(1, label='Dán nhãn thực thể')
+
+	def auto_assign(self):
+		text = self.input.get('1.0', tk.END)
+		words = text.split()
+		ne_tagged_words = LanguageTool.ne_tagging(words)
+		self.add_text(self.output, ' '.join(ne_tagged_words))
 
 	def assign(self):
 		if self.input.tag_ranges("sel"):
