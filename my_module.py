@@ -98,6 +98,9 @@ class TachTu():
 		self.text = tk.Text(self.root)
 		self.open_file_button = tk.Button(self.root, text='Mở file', command=self.open_file)
 		self.save_file_button = tk.Button(self.root, text='Lưu file', command=self.save_file)
+		
+		self.create_menu()
+		self.text.bind('<Button-3>', self.open_menu)
 
 	def pack(self):
 		self.text.pack()
@@ -108,17 +111,43 @@ class TachTu():
 		file_name = filedialog.askopenfilename(parent=self.root, initialdir='./', title='Chọn file text', filetypes=(('file text', '*.txt'),))
 		if file_name != '':
 			with open(file_name, encoding='utf-8', mode='r') as file:
-				text = file.read()
-				text = word_tokenize(text, format='text')
-				self.text.delete('1.0', tk.END)
-				self.text.insert('1.0', text)
+				lines = file.readlines()
+				for line in lines:
+					text = word_tokenize(line, format='text') + '\n'
+					#self.text.delete('1.0', tk.END)
+					self.text.insert(tk.END, text)
 
 	def save_file(self):
 		file_name = filedialog.asksaveasfilename(parent=self.root, confirmoverwrite=False, filetypes=(('txt file', '*.txt'),), defaultextension='.txt')
 		if file_name != '':
 			with open(file_name, mode='w', encoding='utf-8') as file:
 				file.write(self.text.get('1.0', tk.END))
-
+				
+	def create_menu(self):
+		self.menu = Menu(self.root, tearoff=0)
+		self.menu.add_command(label='Ghép vào', command=self.ghep_vao)
+		self.menu.add_command(label='Tách ra', command=self.tach_ra)
+		
+	def open_menu(self, event):
+		try:
+			if self.text.tag_ranges(tk.SEL):
+				self.menu.tk_popup(event.x_root, event.y_root)
+		except error:
+			print(error)
+		finally:
+			self.menu.grab_release()
+			
+	def ghep_vao(self):
+		if self.text.tag_ranges(tk.SEL):
+			text = self.text.get(tk.SEL_FIRST, tk.SEL_LAST)
+			self.text.delete(tk.SEL_FIRST, tk.SEL_LAST)
+			self.text.insert(tk.INSERT, text.replace(' ', '_'))
+		
+	def tach_ra(self):
+		if self.text.tag_ranges(tk.SEL):
+			text = self.text.get(tk.SEL_FIRST, tk.SEL_LAST)
+			self.text.delete(tk.SEL_FIRST, tk.SEL_LAST)
+			self.text.insert(tk.INSERT, text.replace('_', ' '))
 
 
 class GanNhanTu():
